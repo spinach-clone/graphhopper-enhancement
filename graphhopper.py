@@ -167,6 +167,11 @@ HTML_INTERFACE = """
 
         .error-msg { color: #e55; font-weight: bold; }
         .step-num { color: #9c8dec; font-weight: bold; margin-right: 5px; }
+        /* FEATURE: Color-coded turn instructions - Roamar */
+        .step-turn-left  { border-left: 4px solid #f0ad4e; padding-left: 6px; }
+        .step-turn-right { border-left: 4px solid #5bc0de; padding-left: 6px; }
+        .step-arrive     { border-left: 4px solid #5cb85c; padding-left: 6px; font-weight: bold; }
+        .step-continue   { border-left: 4px solid #aaa;    padding-left: 6px; }
     </style>
 </head>
 <body>
@@ -236,8 +241,14 @@ HTML_INTERFACE = """
                 html += `⏱️ Duration: ${result.time}<br><hr>`;
 
                 // INNOVATION: Numbered steps for easier reading
+                // FEATURE: Color-coded turn instructions - Roamar
                 result.instructions.forEach((step, index) => {
-                    html += `<div class="instruction"><span class="step-num">${index + 1}.</span>${step}</div>`;
+                    let colorClass = "step-continue";
+                    const s = step.toLowerCase();
+                    if (s.includes("arrive"))               colorClass = "step-arrive";
+                    else if (s.includes("left"))            colorClass = "step-turn-left";
+                    else if (s.includes("right"))           colorClass = "step-turn-right";
+                    html += `<div class="instruction ${colorClass}"><span class="step-num">${index + 1}.</span>${step}</div>`;
                 });
 
                 output.innerHTML = html;
