@@ -16,6 +16,7 @@ load_dotenv()
 
 api_key = os.getenv("API_KEY")
 
+# BUG FIX: Warn early if API key is missing instead of getting a cryptic error later
 if not api_key:
     print("[ERROR] API_KEY not found in .env file. Please check your .env setup.")
 
