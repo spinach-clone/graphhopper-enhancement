@@ -1,109 +1,150 @@
+#Team IntelleX
+#Members:
+# Diano, Francis Miguel
+# Ejares, Allyssa Faith
+# Espina, Christo Rey
+# Roamar, Kaycee
+
+
+import webview
 import requests
 import urllib.parse
+from dotenv import load_dotenv
+import os
 
-route_url = "https://graphhopper.com/api/1/route?"
-loc1 = "Washington, D.C."
-loc2 = "Baltimore, Maryland"
-key = "ab8a6330-6142-45ac-b6ce-2bc2a4f49385"
+load_dotenv()
+
+api_key = os.getenv("API_KEY")
+
+HTML_INTERFACE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { height: 90vh; font-family: sans-serif; padding: 20px; background: #9c8dec; display: flex; justify-content: center; align-items: center; }
+        .container { max-width: 500px; margin: auto; background: #fafafa; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        input, select, button { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; background: #f4f2f3}
+        input:focus { border: 2px solid #9c8dec; outline: none; }
+        button { background: #9c8dec; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 5px;}
+        button:hover { background: #c9c1f0; }
+        #output { margin-top: 20px; white-space: pre-wrap; font-size: 0.9em; background: #eee; padding: 10px; border-radius: 4px; max-height: 300px; overflow-y: auto; }
+        .instruction { border-bottom: 1px solid #ddd; padding: 5px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 style="text-align: center; color: #9c8dec">PRECISE</h2>
+        <p style="text-align: center; color: #6c757d; margin-top: -10px;">A Text-based direction system for accurate navigation</p>
+        <label>Vehicle Profile:</label>
+        <select id="vehicle">
+            <option value="car">Car</option>
+            <option value="bike">Bike</option>
+            <option value="foot">Foot</option>
+        </select>
+        <input type="text" id="start" placeholder="Starting Location (e.g., Berlin)">
+        <input type="text" id="dest" placeholder="Destination (e.g., Munich)">
+        <button onclick="calculateRoute()">Get Directions</button>
+        <div id="output">Results will appear here...</div>
+    </div>
+
+    <script>
+        async function calculateRoute() {
+            const vehicle = document.getElementById('vehicle').value;
+            const start = document.getElementById('start').value;
+            const dest = document.getElementById('dest').value;
+            const output = document.getElementById('output');
+
+            output.innerHTML = "Loading...";
+
+            // Call the Python function exposed via pywebview
+            const result = await pywebview.api.get_route(start, dest, vehicle);
+
+            if (result.error) {
+                output.innerHTML = "<span style='color:red'>Error: " + result.error + "</span>";
+            } else {
+                let html = `<b>Directions from ${result.origin} to ${result.destination}</b><br>`;
+                html += `Distance: ${result.km} km / ${result.miles} miles<br>`;
+                html += `Duration: ${result.time}<br><hr>`;
+
+                result.instructions.forEach(step => {
+                    html += `<div class="instruction">${step}</div>`;
+                });
+                output.innerHTML = html;
+            }
+        }
+    </script>
+</body>
+</html>
+"""
 
 
-def geocoding(location, key):
-    while location == "":
-        location = input("Enter the location again: ")
-    geocode_url = "https://graphhopper.com/api/1/geocode?"
-    url = geocode_url + urllib.parse.urlencode({"q": location, "limit": "1",
-                                                "key": key})
+class ApiBridge:
+    def __init__(self):
+        self.route_url = "https://graphhopper.com/api/1/route?"
+        self.geocode_url = "https://graphhopper.com/api/1/geocode?"
 
-    replydata = requests.get(url)
-    json_data = replydata.json()
-    json_status = replydata.status_code
+    def _get_geocode(self, location):
+        url = self.geocode_url + urllib.parse.urlencode({"q": location, "limit": "1", "key": api_key})
+        response = requests.get(url)
+        data = response.json()
 
-    if json_status == 200 and len(json_data["hits"]) != 0:
-        json_data = requests.get(url).json()
-        lat = (json_data["hits"][0]["point"]["lat"])
-        lng = (json_data["hits"][0]["point"]["lng"])
-        name = json_data["hits"][0]["name"]
-        value = json_data["hits"][0]["osm_value"]
-        if "country" in json_data["hits"][0]:
-            country = json_data["hits"][0]["country"]
-        else:
-            country = ""
+        if response.status_code == 200 and data.get("hits"):
+            hit = data["hits"][0]
+            return {
+                "lat": hit["point"]["lat"],
+                "lng": hit["point"]["lng"],
+                "name": hit.get("name", location)
+            }
+        return None
 
-        if "state" in json_data["hits"][0]:
-            state = json_data["hits"][0]["state"]
-        else:
-            state = ""
+    def get_route(self, start_loc, dest_loc, vehicle):
+        try:
+            # 1. Geocode Start
+            origin = self._get_geocode(start_loc)
+            # 2. Geocode Destination
+            dest = self._get_geocode(dest_loc)
 
-        if len(state) != 0 and len(country) != 0:
-            new_loc = name + ", " + state + ", " + country
-        elif len(state) != 0:
-            new_loc = name + ", " + country
-        else:
-            new_loc = name
+            if not origin or not dest:
+                return {"error": "Could not find one of the locations."}
 
-        print("Geocoding API URL for " + new_loc + " (Location Type: " + value + ")\n"
+            # 3. Get Route
+            params = {
+                "key": api_key,
+                "vehicle": vehicle,
+                "point": [f"{origin['lat']},{origin['lng']}", f"{dest['lat']},{dest['lng']}"]
+            }
+            # Note: requests handles list params as multiple 'point=' keys automatically
+            route_res = requests.get(self.route_url, params=params)
+            route_data = route_res.json()
 
-              + url)
-    else:
-        lat = "null"
-        lng = "null"
-        new_loc = location
-        if json_status != 200:
-            print("Geocode API status: " + str(json_status) + "\nError message: " +
-                  json_data["message"])
-    return json_status, lat, lng, new_loc
+            if route_res.status_code != 200:
+                return {"error": route_data.get("message", "Routing failed")}
+
+            path = route_data["paths"][0]
+            dist_km = path["distance"] / 1000
+
+            # Format time
+            total_ms = path["time"]
+            seconds = int((total_ms / 1000) % 60)
+            minutes = int((total_ms / (1000 * 60)) % 60)
+            hours = int((total_ms / (1000 * 60 * 60)))
+
+            instructions = [f"{i['text']} ({i['distance'] / 1000:.1f} km)" for i in path["instructions"]]
+
+            return {
+                "origin": origin["name"],
+                "destination": dest["name"],
+                "km": round(dist_km, 1),
+                "miles": round(dist_km / 1.61, 1),
+                "time": f"{hours:02d}:{minutes:02d}:{seconds:02d}",
+                "instructions": instructions
+            }
+
+        except Exception as e:
+            return {"error": str(e)}
 
 
-while True:
-    print("\n+++++++++++++++++++++++++++++++++++++++++++++")
-    print("Vehicle profiles available on Graphhopper:")
-    print("+++++++++++++++++++++++++++++++++++++++++++++")
-    print("car, bike, foot")
-    print("+++++++++++++++++++++++++++++++++++++++++++++")
-    profile = ["car", "bike", "foot"]
-    vehicle = input("Enter a vehicle profile from the list above: ")
-    if vehicle == "quit" or vehicle == "q":
-        break
-    elif vehicle in profile:
-        vehicle = vehicle
-    else:
-        vehicle = "car"
-        print("No valid vehicle profile was entered. Using the car profile.")
-    loc1 = input("Starting Location: ")
-    if loc1 == "quit" or loc1 == "q":
-        break
-    orig = geocoding(loc1, key)
-    loc2 = input("Destination: ")
-    if loc2 == "quit" or loc2 == "q":
-        break
-    dest = geocoding(loc2, key)
-    print("=======================")
-    if orig[0] == 200 and dest[0] == 200:
-        op = "&point=" + str(orig[1]) + "%2C" + str(orig[2])
-        dp = "&point=" + str(dest[1]) + "%2C" + str(dest[2])
-        paths_url = route_url + urllib.parse.urlencode({"key": key, "vehicle": vehicle}) + op + dp
-        paths_status = requests.get(paths_url).status_code
-        paths_data = requests.get(paths_url).json()
-        print("Routing API Status: " + str(paths_status) + "\nRouting API URL:\n" +
-              paths_url)
-        print("=================================================")
-        print("Directions from " + orig[3] + " to " + dest[3] + " by " + vehicle)
-        print("=================================================")
-        if paths_status == 200:
-            miles = (paths_data["paths"][0]["distance"]) / 1000 / 1.61
-            km = (paths_data["paths"][0]["distance"]) / 1000
-            sec = int(paths_data["paths"][0]["time"] / 1000 % 60)
-            min = int(paths_data["paths"][0]["time"] / 1000 / 60 % 60)
-            hr = int(paths_data["paths"][0]["time"] / 1000 / 60 / 60)
-            print("Distance Traveled: {0:.1f} miles / {1:.1f} km".format(miles, km))
-            print("Trip Duration:  {0:02d}:{1:02d}:{2:02d}".format(hr, min, sec))
-            print("=================================================")
-            for each in range(len(paths_data["paths"][0]["instructions"])):
-                path = paths_data["paths"][0]["instructions"][each]["text"]
-                distance = paths_data["paths"][0]["instructions"][each]["distance"]
-                print("{0} ( {1:.1f} km / {2:.1f} miles )".format(path, distance / 1000,
-                                                                  distance / 1000 / 1.61))
-            print("=============================================")
-        else:
-            print("Error message: " + paths_data["message"])
-            print("*************************************************")
+if __name__ == "__main__":
+    bridge = ApiBridge()
+    window = webview.create_window('PRECISE: An Enhanced Map Navigation System with Graphhopper', html=HTML_INTERFACE, js_api=bridge)
+    webview.start()
