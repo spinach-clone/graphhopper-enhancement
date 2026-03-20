@@ -16,9 +16,16 @@ load_dotenv()
 
 api_key = os.getenv("API_KEY")
 
+# ANSI color codes — no extra libraries needed
+GREEN  = "\033[92m"
+RED    = "\033[91m"
+CYAN   = "\033[96m"
+BOLD   = "\033[1m"
+RESET  = "\033[0m"
+
 # BUG FIX: Warn early if API key is missing instead of getting a cryptic error later
 if not api_key:
-    print("[ERROR] API_KEY not found in .env file. Please check your .env setup.")
+    print(f"{RED}[ERROR] API_KEY not found in .env file. Please check your .env setup.{RESET}")
 
 HTML_INTERFACE = """
 <!DOCTYPE html>
@@ -52,8 +59,8 @@ HTML_INTERFACE = """
         --shell:     #1e1b30;
         --left-bg:   #181628;
         --right-bg:  #1e1b30;
-        --accent:    #9c7de0;
-        --accent2:   #c4a8f5;
+        --accent:    #9c8dec;
+        --accent2:   #c9c1f0;
         --text:      #e8e6f5;
         --subtext:   #8884aa;
         --border:    #2e2a45;
@@ -130,14 +137,8 @@ HTML_INTERFACE = """
     input:checked + .tog-slider { background: var(--accent); }
     input:checked + .tog-slider:before { transform: translateX(16px); }
 
-    /* ── Main ── */
-    .main {
-        display: flex;
-        flex: 1;
-        min-height: 580px;
-    }
+    .main { display: flex; flex: 1; min-height: 580px; }
 
-    /* ══ LEFT PANEL ══ */
     .left-panel {
         flex: 1.15;
         background: var(--left-bg);
@@ -173,17 +174,11 @@ HTML_INTERFACE = """
     }
 
     body.dark .status-badge { background: #1a3a28; color: #5dca8a; }
-
     .route-sub { font-size: 0.78em; color: var(--subtext); margin-top: 4px; }
 
-    /* Form */
     .form-section { margin-bottom: 12px; }
 
-    .form-row {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-    }
+    .form-row { display: flex; gap: 8px; align-items: center; }
 
     .form-row input, .form-row select {
         flex: 1;
@@ -218,11 +213,10 @@ HTML_INTERFACE = """
         margin: 0;
     }
 
-    .go-btn:hover { background: var(--accent2); }
+    .go-btn:hover { background: var(--accent2); color: var(--text); }
 
     .error-msg { color: #e55; font-size: 0.8em; font-weight: 500; margin-top: 5px; }
 
-    /* ── Real Leaflet map ── */
     #map {
         flex: 1;
         border-radius: 12px;
@@ -232,16 +226,13 @@ HTML_INTERFACE = """
         z-index: 1;
     }
 
-    /* Override Leaflet popup to match theme */
     .leaflet-popup-content-wrapper {
         border-radius: 10px;
         box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         font-family: 'DM Sans', sans-serif;
     }
-
     .leaflet-popup-content { font-size: 0.85em; }
 
-    /* ══ RIGHT PANEL ══ */
     .right-panel {
         width: 330px;
         min-width: 290px;
@@ -267,7 +258,6 @@ HTML_INTERFACE = """
         padding: 2px 6px; border-radius: 4px;
         width: auto; margin: 0;
     }
-
     .dots-btn:hover { background: var(--input-bg); color: var(--text); }
 
     .route-points {
@@ -287,7 +277,6 @@ HTML_INTERFACE = """
         margin-top: 5px;
         flex-shrink: 0;
     }
-
     .rp-dot.dest { background: #e74c3c; }
 
     .rp-label { font-size: 0.7em; color: var(--subtext); margin-bottom: 1px; }
@@ -296,7 +285,6 @@ HTML_INTERFACE = """
     .time-stats {
         display: flex;
         padding: 12px 20px;
-        gap: 0;
         border-bottom: 1px solid var(--border);
     }
 
@@ -310,14 +298,17 @@ HTML_INTERFACE = """
     .goods-list {
         flex: 1;
         overflow-y: auto;
+        max-height: 220px;
         padding: 0 20px 10px;
         display: flex;
         flex-direction: column;
         gap: 5px;
     }
 
-    .goods-list::-webkit-scrollbar { width: 4px; }
-    .goods-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .goods-list::-webkit-scrollbar { width: 6px; }
+    .goods-list::-webkit-scrollbar-track { background: var(--input-bg); border-radius: 4px; }
+    .goods-list::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+    .goods-list::-webkit-scrollbar-thumb:hover { background: var(--accent2); }
 
     .step-item {
         display: flex;
@@ -338,8 +329,7 @@ HTML_INTERFACE = """
         border-radius: 6px;
         background: var(--input-bg);
         display: flex; align-items: center; justify-content: center;
-        font-size: 0.75em;
-        font-weight: 600;
+        font-size: 0.75em; font-weight: 600;
         color: var(--accent);
         font-family: 'DM Mono', monospace;
         flex-shrink: 0;
@@ -353,11 +343,23 @@ HTML_INTERFACE = """
         font-size: 0.64em; font-weight: 500;
         padding: 2px 7px; border-radius: 4px; flex-shrink: 0;
     }
-
     .tag-start { background: #e8f5e9; color: #27ae60; }
     .tag-end   { background: #fdecea; color: #c0392b; }
     body.dark .tag-start { background: #1a3328; color: #5dca8a; }
     body.dark .tag-end   { background: #3a1a1a; color: #e07070; }
+
+    /* Color-coded turn instructions — Roamar feature */
+    .turn-left   { border-left: 4px solid #f0ad4e; background: #fffbf2; }
+    .turn-right  { border-left: 4px solid #7c5cbf; background: #f7f4ff; }
+    .turn-arrive { border-left: 4px solid #5cb85c; background: #f2fff2; }
+    .turn-keep   { border-left: 4px solid #5bc0de; background: #f2fbff; }
+    .turn-other  { border-left: 4px solid #cccccc; }
+
+    body.dark .turn-left   { background: #2a2210; }
+    body.dark .turn-right  { background: #1e1830; }
+    body.dark .turn-arrive { background: #102010; }
+    body.dark .turn-keep   { background: #102028; }
+    body.dark .turn-other  { border-left: 4px solid #444; }
 
     .empty-state {
         display: flex; flex-direction: column;
@@ -366,10 +368,8 @@ HTML_INTERFACE = """
         color: var(--subtext); font-size: 0.82em;
         text-align: center; padding: 20px;
     }
-
     .empty-state .ei { font-size: 2em; opacity: 0.3; }
 
-    /* Fuel section */
     .fuel-section {
         border-top: 1px solid var(--border);
         padding: 12px 20px 14px;
@@ -402,11 +402,9 @@ HTML_INTERFACE = """
         background: var(--input-bg);
         border-radius: 8px; border: 1px solid var(--border);
     }
-
     .fr-label { font-size: 0.7em; color: var(--subtext); }
-    .fr-value { font-size: 1em; font-weight: 700; color: var(--accent); font-family: 'DM Mono', monospace; }
+    .fr-value  { font-size: 1em; font-weight: 700; color: var(--accent); font-family: 'DM Mono', monospace; }
 
-    /* Action bar — only Clear + Recalculate */
     .action-bar {
         display: flex; gap: 8px;
         padding: 12px 20px;
@@ -425,14 +423,11 @@ HTML_INTERFACE = """
         transition: all 0.2s;
         width: auto; margin: 0;
     }
-
     .action-btn:hover { background: var(--input-bg); }
-
     .action-btn.primary {
         background: var(--accent); color: #fff; border-color: var(--accent);
     }
-
-    .action-btn.primary:hover { background: var(--accent2); border-color: var(--accent2); }
+    .action-btn.primary:hover { background: var(--accent2); color: var(--text); border-color: var(--accent2); }
 
     @media (max-width: 720px) {
         .main { flex-direction: column; }
@@ -443,7 +438,6 @@ HTML_INTERFACE = """
 <body>
 <div class="shell">
 
-    <!-- ── Top nav bar ── -->
     <div class="topbar">
         <div class="topbar-left">
             <div class="ham"><span></span><span></span><span></span></div>
@@ -464,10 +458,9 @@ HTML_INTERFACE = """
         </label>
     </div>
 
-    <!-- ── Main ── -->
     <div class="main">
 
-        <!-- ══ LEFT PANEL ══ -->
+        <!-- LEFT PANEL -->
         <div class="left-panel">
 
             <div class="route-header">
@@ -492,12 +485,11 @@ HTML_INTERFACE = """
                 <div id="form-error"></div>
             </div>
 
-            <!-- Real OpenStreetMap via Leaflet -->
             <div id="map"></div>
 
         </div>
 
-        <!-- ══ RIGHT PANEL ══ -->
+        <!-- RIGHT PANEL -->
         <div class="right-panel">
 
             <div class="details-header">
@@ -545,7 +537,6 @@ HTML_INTERFACE = """
                 </div>
             </div>
 
-            <!-- Fuel Cost -->
             <div class="fuel-section">
                 <h4>⛽ Fuel Cost Calculator</h4>
                 <div class="fuel-inputs">
@@ -562,7 +553,6 @@ HTML_INTERFACE = """
                 </div>
             </div>
 
-            <!-- Action bar: only Clear + Recalculate -->
             <div class="action-bar">
                 <button class="action-btn" onclick="clearAll()">Clear Route</button>
                 <button class="action-btn primary" onclick="calculateRoute()">Recalculate</button>
@@ -573,27 +563,22 @@ HTML_INTERFACE = """
 </div>
 
 <script>
-    // ── Init Leaflet map with OpenStreetMap tiles ──
     const map = L.map('map', { zoomControl: true }).setView([20, 0], 2);
-
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19
     }).addTo(map);
 
-    let routeLayer  = null;   // polyline on map
+    let routeLayer  = null;
     let markerStart = null;
     let markerEnd   = null;
     let routeCounter = Math.floor(Math.random() * 8000) + 1000;
-    let lastResult   = null;
 
-    // Custom markers
     const iconStart = L.divIcon({
         className: '',
-        html: `<div style="width:14px;height:14px;background:#7c5cbf;border:2px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
+        html: `<div style="width:14px;height:14px;background:#9c8dec;border:2px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
         iconSize: [14,14], iconAnchor: [7,7]
     });
-
     const iconEnd = L.divIcon({
         className: '',
         html: `<div style="width:14px;height:14px;background:#e74c3c;border:2px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
@@ -619,6 +604,21 @@ HTML_INTERFACE = """
         litersEl.textContent = `⛽ ${liters.toFixed(2)} L needed`;
     }
 
+    function decodePolyline(encoded) {
+        let index = 0, lat = 0, lng = 0;
+        const coords = [];
+        while (index < encoded.length) {
+            let b, shift = 0, result = 0;
+            do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+            lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+            shift = 0; result = 0;
+            do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+            lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+            coords.push([lat / 1e5, lng / 1e5]);
+        }
+        return coords;
+    }
+
     async function calculateRoute() {
         const vehicle = document.getElementById('vehicle').value;
         const start   = document.getElementById('start').value.trim();
@@ -626,11 +626,14 @@ HTML_INTERFACE = """
         const errEl   = document.getElementById('form-error');
         errEl.innerHTML = '';
 
-        if (!start || !dest) {
-            errEl.innerHTML = "<span class='error-msg'>⚠️ Please enter both a starting location and a destination.</span>"; return;
+        // FIX 2: Input validation before hitting the API
+        if (!start.trim() || !dest.trim()) {
+            errEl.innerHTML = "<span class='error-msg'>⚠️ Please enter both a starting location and a destination.</span>";
+            return;
         }
-        if (start.toLowerCase() === dest.toLowerCase()) {
-            errEl.innerHTML = "<span class='error-msg'>⚠️ Start and destination cannot be the same.</span>"; return;
+        if (start.trim().toLowerCase() === dest.trim().toLowerCase()) {
+            errEl.innerHTML = "<span class='error-msg'>⚠️ Start and destination cannot be the same.</span>";
+            return;
         }
 
         document.getElementById('goods-list').innerHTML =
@@ -641,6 +644,7 @@ HTML_INTERFACE = """
         const result = await pywebview.api.get_route(start, dest, vehicle);
 
         if (result.error) {
+            errEl.innerHTML = `<span class='error-msg'>❌ ${result.error}</span>`;
             document.getElementById('goods-list').innerHTML =
                 `<div class="empty-state"><div class="ei">❌</div><div>${result.error}</div></div>`;
             return;
@@ -655,14 +659,13 @@ HTML_INTERFACE = """
         document.getElementById('status-badge').style.display  = 'inline-block';
         document.getElementById('route-sub').textContent       = `Calculated on ${new Date().toLocaleString()}`;
 
-        // Right panel details
         document.getElementById('dep-value').textContent  = result.origin;
         document.getElementById('arr-value').textContent  = result.destination;
         document.getElementById('stat-dist').textContent  = result.km + ' km';
         document.getElementById('stat-miles').textContent = result.miles + ' mi';
         document.getElementById('stat-time').textContent  = result.time;
 
-        // Directions list
+        // Directions list with color-coded turns — Roamar feature
         const list = document.getElementById('goods-list');
         list.innerHTML = '';
         result.instructions.forEach((step, i) => {
@@ -673,8 +676,14 @@ HTML_INTERFACE = """
             const isLast  = i === result.instructions.length - 1;
             const tag = isFirst ? "<span class='step-tag tag-start'>Start</span>"
                       : isLast  ? "<span class='step-tag tag-end'>Arrive</span>" : '';
+            const s = text.toLowerCase();
+            const turnClass = s.includes('arrive')              ? 'turn-arrive'
+                            : s.includes('left')                ? 'turn-left'
+                            : s.includes('right')               ? 'turn-right'
+                            : (s.includes('keep') || s.includes('continue')) ? 'turn-keep'
+                            : 'turn-other';
             list.innerHTML += `
-                <div class="step-item">
+                <div class="step-item ${turnClass}">
                     <div class="step-num-box">${String(i+1).padStart(2,'0')}</div>
                     <div class="step-info">
                         <div class="step-text" title="${text}">${text}</div>
@@ -684,49 +693,24 @@ HTML_INTERFACE = """
                 </div>`;
         });
 
-        // Auto-fill fuel distance
         document.getElementById('fuel-dist').value = result.km;
         calcFuel();
 
-        // ── Draw real route on Leaflet map ──
-        // Clear previous layers
         if (routeLayer)  { map.removeLayer(routeLayer);  routeLayer = null; }
         if (markerStart) { map.removeLayer(markerStart); markerStart = null; }
         if (markerEnd)   { map.removeLayer(markerEnd);   markerEnd = null; }
 
-        // Decode geometry from GraphHopper (encoded polyline)
-        const points = decodePolyline(result.encoded_points);
+        if (result.encoded_points) {
+            const points = decodePolyline(result.encoded_points);
+            routeLayer = L.polyline(points, { color: '#9c8dec', weight: 4, opacity: 0.85, lineJoin: 'round' }).addTo(map);
+            map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+        }
 
-        routeLayer = L.polyline(points, {
-            color: '#7c5cbf',
-            weight: 4,
-            opacity: 0.85,
-            lineJoin: 'round'
-        }).addTo(map);
-
-        markerStart = L.marker([result.start_lat, result.start_lng], { icon: iconStart })
-            .addTo(map)
-            .bindPopup(`<b>📍 Start</b><br>${result.origin}`);
-
-        markerEnd = L.marker([result.end_lat, result.end_lng], { icon: iconEnd })
-            .addTo(map)
-            .bindPopup(`<b>🏁 Destination</b><br>${result.destination}`);
-
-        map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
-    }
-
-    // Decode Google-encoded polyline (used by GraphHopper)
-    function decodePolyline(encoded) {
-        let index = 0, lat = 0, lng = 0;
-        const coords = [];
-        while (index < encoded.length) {
-            let b, shift = 0, result = 0;
-            do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-            lat += (result & 1) ? ~(result >> 1) : (result >> 1);
-            shift = 0; result = 0;
-            do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-            lng += (result & 1) ? ~(result >> 1) : (result >> 1);
-            coords.push([lat / 1e5, lng / 1e5]);
+        if (result.start_lat) {
+            markerStart = L.marker([result.start_lat, result.start_lng], { icon: iconStart })
+                .addTo(map).bindPopup(`<b>📍 Start</b><br>${result.origin}`);
+            markerEnd   = L.marker([result.end_lat, result.end_lng], { icon: iconEnd })
+                .addTo(map).bindPopup(`<b>🏁 Destination</b><br>${result.destination}`);
         }
         return coords;
     }
@@ -769,77 +753,113 @@ class ApiBridge:
         self.geocode_url = "https://graphhopper.com/api/1/geocode?"
 
     def _get_geocode(self, location):
+        # FIX 3: Guard against missing API key
         if not api_key:
             return None
+
         url = self.geocode_url + urllib.parse.urlencode({"q": location, "limit": "1", "key": api_key})
+
+        # FIX 1: Added try/except + timeout=10 to prevent crash/hang
         try:
             response = requests.get(url, timeout=10)
             data = response.json()
+
+            # CYAN: API URL and status code
+            print(f"{CYAN}[GEOCODE] URL: {url}{RESET}")
+            print(f"{CYAN}[GEOCODE] Status: {response.status_code}{RESET}")
+
             if response.status_code == 200 and data.get("hits"):
                 hit = data["hits"][0]
+                # GREEN: Successful geocode result
+                print(f"{GREEN}[GEOCODE] Found: {hit.get('name', location)} "
+                      f"({hit['point']['lat']}, {hit['point']['lng']}){RESET}")
                 return {
-                    "lat":  hit["point"]["lat"],
-                    "lng":  hit["point"]["lng"],
+                    "lat": hit["point"]["lat"],
+                    "lng": hit["point"]["lng"],
                     "name": hit.get("name", location)
                 }
+            else:
+                # RED: No results found
+                print(f"{RED}[GEOCODE] No results found for: '{location}'{RESET}")
+
         except requests.exceptions.Timeout:
-            print(f"[ERROR] Geocode timed out for: {location}")
+            # RED: Timeout error
+            print(f"{RED}[ERROR] Geocode request timed out for: {location}{RESET}")
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Geocode failed: {e}")
+            # RED: Any other network error
+            print(f"{RED}[ERROR] Geocode request failed: {e}{RESET}")
+
         return None
 
     def get_route(self, start_loc, dest_loc, vehicle):
-        try:
-            if not api_key:
-                return {"error": "API key is missing. Please check your .env file."}
+        # BOLD: Header divider when a new route request starts
+        print(f"\n{BOLD}{'='*50}{RESET}")
+        print(f"{BOLD}  PRECISE — Route Request{RESET}")
+        print(f"{BOLD}  From : {start_loc}{RESET}")
+        print(f"{BOLD}  To   : {dest_loc}{RESET}")
+        print(f"{BOLD}  Mode : {vehicle}{RESET}")
+        print(f"{BOLD}{'='*50}{RESET}")
 
+        if not api_key:
+            # RED: Missing API key
+            print(f"{RED}[ERROR] API key is missing. Please check your .env file.{RESET}")
+            return {"error": "API key is missing. Please check your .env file."}
+
+        try:
             origin = self._get_geocode(start_loc)
             dest   = self._get_geocode(dest_loc)
 
             if not origin:
+                print(f"{RED}[ERROR] Could not find starting location: '{start_loc}'{RESET}")
                 return {"error": f"Could not find starting location: '{start_loc}'"}
             if not dest:
+                print(f"{RED}[ERROR] Could not find destination: '{dest_loc}'{RESET}")
                 return {"error": f"Could not find destination: '{dest_loc}'"}
 
+            # 3. Get Route
             params = {
-                "key":     api_key,
+                "key": api_key,
                 "vehicle": vehicle,
-                "point":   [
-                    f"{origin['lat']},{origin['lng']}",
-                    f"{dest['lat']},{dest['lng']}"
-                ],
-                # Request encoded polyline for Leaflet rendering
+                "point": [f"{origin['lat']},{origin['lng']}", f"{dest['lat']},{dest['lng']}"],
                 "points_encoded": "true"
             }
 
             route_res  = requests.get(self.route_url, params=params, timeout=10)
             route_data = route_res.json()
 
-            if route_res.status_code != 200:
-                return {"error": route_data.get("message", "Routing failed. Check your API key or locations.")}
+            # CYAN: Route API status
+            print(f"{CYAN}[ROUTE] Status: {route_res.status_code}{RESET}")
 
-            path     = route_data["paths"][0]
-            dist_km  = path["distance"] / 1000
+            if route_res.status_code != 200:
+                msg = route_data.get("message", "Routing failed. Check your API key or locations.")
+                print(f"{RED}[ERROR] Routing failed: {msg}{RESET}")
+                return {"error": msg}
+
+            path    = route_data["paths"][0]
+            dist_km = path["distance"] / 1000
+
+            # Format time
             total_ms = path["time"]
             seconds  = int((total_ms / 1000) % 60)
             minutes  = int((total_ms / (1000 * 60)) % 60)
-            hours    = int(total_ms / (1000 * 60 * 60))
+            hours    = int((total_ms / (1000 * 60 * 60)))
+            time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
-            instructions = [
-                f"{i['text']} ({i['distance'] / 1000:.1f} km)"
-                for i in path["instructions"]
-            ]
+            # GREEN: Successful route result
+            print(f"{GREEN}[ROUTE] Success! {origin['name']} → {dest['name']}{RESET}")
+            print(f"{GREEN}[ROUTE] Distance : {round(dist_km, 1)} km / {round(dist_km / 1.61, 1)} mi{RESET}")
+            print(f"{GREEN}[ROUTE] Duration : {time_str}{RESET}")
+
+            instructions = [f"{i['text']} ({i['distance'] / 1000:.1f} km)" for i in path["instructions"]]
 
             return {
                 "origin":         origin["name"],
                 "destination":    dest["name"],
                 "km":             round(dist_km, 1),
                 "miles":          round(dist_km / 1.61, 1),
-                "time":           f"{hours:02d}:{minutes:02d}:{seconds:02d}",
+                "time":           time_str,
                 "instructions":   instructions,
-                # Encoded polyline geometry for Leaflet
                 "encoded_points": path["points"],
-                # Exact coords for markers
                 "start_lat":      origin["lat"],
                 "start_lng":      origin["lng"],
                 "end_lat":        dest["lat"],
@@ -847,6 +867,8 @@ class ApiBridge:
             }
 
         except Exception as e:
+            # RED: Unexpected exception
+            print(f"{RED}[ERROR] Unexpected error: {e}{RESET}")
             return {"error": str(e)}
 
 
