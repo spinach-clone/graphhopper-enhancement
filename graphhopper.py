@@ -16,9 +16,16 @@ load_dotenv()
 
 api_key = os.getenv("API_KEY")
 
+# ANSI color codes — no extra libraries needed
+GREEN  = "\033[92m"
+RED    = "\033[91m"
+CYAN   = "\033[96m"
+BOLD   = "\033[1m"
+RESET  = "\033[0m"
+
 # BUG FIX: Warn early if API key is missing instead of getting a cryptic error later
 if not api_key:
-    print("[ERROR] API_KEY not found in .env file. Please check your .env setup.")
+    print(f"{RED}[ERROR] API_KEY not found in .env file. Please check your .env setup.{RESET}")
 
 HTML_INTERFACE = """
 <!DOCTYPE html>
@@ -291,14 +298,17 @@ HTML_INTERFACE = """
     .goods-list {
         flex: 1;
         overflow-y: auto;
+        max-height: 220px;
         padding: 0 20px 10px;
         display: flex;
         flex-direction: column;
         gap: 5px;
     }
 
-    .goods-list::-webkit-scrollbar { width: 4px; }
-    .goods-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .goods-list::-webkit-scrollbar { width: 6px; }
+    .goods-list::-webkit-scrollbar-track { background: var(--input-bg); border-radius: 4px; }
+    .goods-list::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+    .goods-list::-webkit-scrollbar-thumb:hover { background: var(--accent2); }
 
     .step-item {
         display: flex;
@@ -337,6 +347,19 @@ HTML_INTERFACE = """
     .tag-end   { background: #fdecea; color: #c0392b; }
     body.dark .tag-start { background: #1a3328; color: #5dca8a; }
     body.dark .tag-end   { background: #3a1a1a; color: #e07070; }
+
+    /* Color-coded turn instructions — Roamar feature */
+    .turn-left   { border-left: 4px solid #f0ad4e; background: #fffbf2; }
+    .turn-right  { border-left: 4px solid #7c5cbf; background: #f7f4ff; }
+    .turn-arrive { border-left: 4px solid #5cb85c; background: #f2fff2; }
+    .turn-keep   { border-left: 4px solid #5bc0de; background: #f2fbff; }
+    .turn-other  { border-left: 4px solid #cccccc; }
+
+    body.dark .turn-left   { background: #2a2210; }
+    body.dark .turn-right  { background: #1e1830; }
+    body.dark .turn-arrive { background: #102010; }
+    body.dark .turn-keep   { background: #102028; }
+    body.dark .turn-other  { border-left: 4px solid #444; }
 
     .empty-state {
         display: flex; flex-direction: column;
@@ -654,9 +677,10 @@ HTML_INTERFACE = """
             const tag = isFirst ? "<span class='step-tag tag-start'>Start</span>"
                       : isLast  ? "<span class='step-tag tag-end'>Arrive</span>" : '';
             const s = text.toLowerCase();
-            const turnClass = s.includes('arrive') ? 'turn-arrive'
-                            : s.includes('left')   ? 'turn-left'
-                            : s.includes('right')  ? 'turn-right'
+            const turnClass = s.includes('arrive')              ? 'turn-arrive'
+                            : s.includes('left')                ? 'turn-left'
+                            : s.includes('right')               ? 'turn-right'
+                            : (s.includes('keep') || s.includes('continue')) ? 'turn-keep'
                             : 'turn-other';
             list.innerHTML += `
                 <div class="step-item ${turnClass}">
@@ -740,31 +764,56 @@ class ApiBridge:
             response = requests.get(url, timeout=10)
             data = response.json()
 
+            # CYAN: API URL and status code
+            print(f"{CYAN}[GEOCODE] URL: {url}{RESET}")
+            print(f"{CYAN}[GEOCODE] Status: {response.status_code}{RESET}")
+
             if response.status_code == 200 and data.get("hits"):
                 hit = data["hits"][0]
+                # GREEN: Successful geocode result
+                print(f"{GREEN}[GEOCODE] Found: {hit.get('name', location)} "
+                      f"({hit['point']['lat']}, {hit['point']['lng']}){RESET}")
                 return {
                     "lat": hit["point"]["lat"],
                     "lng": hit["point"]["lng"],
                     "name": hit.get("name", location)
                 }
+            else:
+                # RED: No results found
+                print(f"{RED}[GEOCODE] No results found for: '{location}'{RESET}")
+
         except requests.exceptions.Timeout:
-            print(f"[ERROR] Geocode request timed out for: {location}")
+            # RED: Timeout error
+            print(f"{RED}[ERROR] Geocode request timed out for: {location}{RESET}")
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Geocode request failed: {e}")
+            # RED: Any other network error
+            print(f"{RED}[ERROR] Geocode request failed: {e}{RESET}")
 
         return None
 
     def get_route(self, start_loc, dest_loc, vehicle):
-        try:
-            if not api_key:
-                return {"error": "API key is missing. Please check your .env file."}
+        # BOLD: Header divider when a new route request starts
+        print(f"\n{BOLD}{'='*50}{RESET}")
+        print(f"{BOLD}  PRECISE — Route Request{RESET}")
+        print(f"{BOLD}  From : {start_loc}{RESET}")
+        print(f"{BOLD}  To   : {dest_loc}{RESET}")
+        print(f"{BOLD}  Mode : {vehicle}{RESET}")
+        print(f"{BOLD}{'='*50}{RESET}")
 
+        if not api_key:
+            # RED: Missing API key
+            print(f"{RED}[ERROR] API key is missing. Please check your .env file.{RESET}")
+            return {"error": "API key is missing. Please check your .env file."}
+
+        try:
             origin = self._get_geocode(start_loc)
             dest   = self._get_geocode(dest_loc)
 
             if not origin:
+                print(f"{RED}[ERROR] Could not find starting location: '{start_loc}'{RESET}")
                 return {"error": f"Could not find starting location: '{start_loc}'"}
             if not dest:
+                print(f"{RED}[ERROR] Could not find destination: '{dest_loc}'{RESET}")
                 return {"error": f"Could not find destination: '{dest_loc}'"}
 
             # 3. Get Route
@@ -778,8 +827,13 @@ class ApiBridge:
             route_res  = requests.get(self.route_url, params=params, timeout=10)
             route_data = route_res.json()
 
+            # CYAN: Route API status
+            print(f"{CYAN}[ROUTE] Status: {route_res.status_code}{RESET}")
+
             if route_res.status_code != 200:
-                return {"error": route_data.get("message", "Routing failed. Check your API key or locations.")}
+                msg = route_data.get("message", "Routing failed. Check your API key or locations.")
+                print(f"{RED}[ERROR] Routing failed: {msg}{RESET}")
+                return {"error": msg}
 
             path    = route_data["paths"][0]
             dist_km = path["distance"] / 1000
@@ -789,6 +843,12 @@ class ApiBridge:
             seconds  = int((total_ms / 1000) % 60)
             minutes  = int((total_ms / (1000 * 60)) % 60)
             hours    = int((total_ms / (1000 * 60 * 60)))
+            time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+            # GREEN: Successful route result
+            print(f"{GREEN}[ROUTE] Success! {origin['name']} → {dest['name']}{RESET}")
+            print(f"{GREEN}[ROUTE] Distance : {round(dist_km, 1)} km / {round(dist_km / 1.61, 1)} mi{RESET}")
+            print(f"{GREEN}[ROUTE] Duration : {time_str}{RESET}")
 
             instructions = [f"{i['text']} ({i['distance'] / 1000:.1f} km)" for i in path["instructions"]]
 
@@ -797,7 +857,7 @@ class ApiBridge:
                 "destination":    dest["name"],
                 "km":             round(dist_km, 1),
                 "miles":          round(dist_km / 1.61, 1),
-                "time":           f"{hours:02d}:{minutes:02d}:{seconds:02d}",
+                "time":           time_str,
                 "instructions":   instructions,
                 "encoded_points": path["points"],
                 "start_lat":      origin["lat"],
@@ -807,6 +867,8 @@ class ApiBridge:
             }
 
         except Exception as e:
+            # RED: Unexpected exception
+            print(f"{RED}[ERROR] Unexpected error: {e}{RESET}")
             return {"error": str(e)}
 
 
