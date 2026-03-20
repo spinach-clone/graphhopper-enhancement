@@ -16,7 +16,7 @@ load_dotenv()
 
 api_key = os.getenv("API_KEY")
 
-# FIX 3: Warn early if API key is missing
+# BUG FIX: Warn early if API key is missing instead of getting a cryptic error later
 if not api_key:
     print("[ERROR] API_KEY not found in .env file. Please check your .env setup.")
 
@@ -35,13 +35,13 @@ HTML_INTERFACE = """
         --shell:     #ffffff;
         --left-bg:   #f7f6fb;
         --right-bg:  #ffffff;
-        --accent:    #9c8dec;
-        --accent2:   #c9c1f0;
+        --accent:    #7c5cbf;
+        --accent2:   #a98ddf;
         --text:      #1a1a2e;
         --subtext:   #7a7a9a;
         --border:    #e4e2ee;
         --card:      #ffffff;
-        --input-bg:  #f4f2f3;
+        --input-bg:  #f4f2fa;
         --shadow:    0 2px 16px rgba(100,80,180,0.08);
         --btn-track: #f4f2fa;
         --btn-track-t: #1a1a2e;
@@ -88,6 +88,7 @@ HTML_INTERFACE = """
         transition: background 0.3s;
     }
 
+    /* ── Top nav bar ── */
     .topbar {
         display: flex;
         align-items: center;
@@ -308,6 +309,7 @@ HTML_INTERFACE = """
         border: 1px solid var(--border);
         background: var(--card);
         transition: background 0.2s;
+        cursor: default;
     }
 
     .step-item:hover { background: var(--input-bg); }
@@ -335,12 +337,6 @@ HTML_INTERFACE = """
     .tag-end   { background: #fdecea; color: #c0392b; }
     body.dark .tag-start { background: #1a3328; color: #5dca8a; }
     body.dark .tag-end   { background: #3a1a1a; color: #e07070; }
-
-    /* Color-coded turn instructions — Roamar */
-    .turn-left  { border-left: 3px solid #f0ad4e; }
-    .turn-right { border-left: 3px solid #9c8dec; }
-    .turn-arrive{ border-left: 3px solid #5cb85c; }
-    .turn-other { border-left: 3px solid var(--border); }
 
     .empty-state {
         display: flex; flex-direction: column;
@@ -373,6 +369,7 @@ HTML_INTERFACE = """
         font-size: 0.8em; outline: none; margin: 0;
         transition: border-color 0.2s, background 0.3s;
     }
+
     .fuel-inputs input:focus { border-color: var(--accent); }
 
     .fuel-result-row {
@@ -601,8 +598,8 @@ HTML_INTERFACE = """
 
     async function calculateRoute() {
         const vehicle = document.getElementById('vehicle').value;
-        const start   = document.getElementById('start').value;
-        const dest    = document.getElementById('dest').value;
+        const start   = document.getElementById('start').value.trim();
+        const dest    = document.getElementById('dest').value.trim();
         const errEl   = document.getElementById('form-error');
         errEl.innerHTML = '';
 
@@ -630,6 +627,9 @@ HTML_INTERFACE = """
             return;
         }
 
+        lastResult = result;
+
+        // Breadcrumb + header
         routeCounter++;
         document.getElementById('route-id').textContent        = '#' + routeCounter;
         document.getElementById('breadcrumb-dest').textContent = '#' + routeCounter;
@@ -688,11 +688,15 @@ HTML_INTERFACE = """
             markerEnd   = L.marker([result.end_lat, result.end_lng], { icon: iconEnd })
                 .addTo(map).bindPopup(`<b>🏁 Destination</b><br>${result.destination}`);
         }
+        return coords;
     }
 
     function clearAll() {
-        ['start','dest','fuel-dist','fuel-eff','fuel-price'].forEach(id =>
-            document.getElementById(id).value = '');
+        document.getElementById('start').value = '';
+        document.getElementById('dest').value  = '';
+        document.getElementById('fuel-dist').value  = '';
+        document.getElementById('fuel-eff').value   = '';
+        document.getElementById('fuel-price').value = '';
         document.getElementById('fuel-cost').textContent   = '—';
         document.getElementById('fuel-liters').textContent = '';
         document.getElementById('dep-value').textContent   = '—';
@@ -711,6 +715,7 @@ HTML_INTERFACE = """
         if (markerStart) { map.removeLayer(markerStart); markerStart = null; }
         if (markerEnd)   { map.removeLayer(markerEnd);   markerEnd = null; }
         map.setView([20, 0], 2);
+        lastResult = null;
     }
 </script>
 </body>
@@ -750,18 +755,17 @@ class ApiBridge:
         return None
 
     def get_route(self, start_loc, dest_loc, vehicle):
-        # FIX 3: Check API key early and return friendly error
-        if not api_key:
-            return {"error": "API key is missing. Please check your .env file."}
-
         try:
-            # 1. Geocode Start
-            origin = self._get_geocode(start_loc)
-            # 2. Geocode Destination
-            dest = self._get_geocode(dest_loc)
+            if not api_key:
+                return {"error": "API key is missing. Please check your .env file."}
 
-            if not origin or not dest:
-                return {"error": "Could not find one of the locations."}
+            origin = self._get_geocode(start_loc)
+            dest   = self._get_geocode(dest_loc)
+
+            if not origin:
+                return {"error": f"Could not find starting location: '{start_loc}'"}
+            if not dest:
+                return {"error": f"Could not find destination: '{dest_loc}'"}
 
             # 3. Get Route
             params = {
@@ -770,12 +774,12 @@ class ApiBridge:
                 "point": [f"{origin['lat']},{origin['lng']}", f"{dest['lat']},{dest['lng']}"],
                 "points_encoded": "true"
             }
-            # Note: requests handles list params as multiple 'point=' keys automatically
+
             route_res  = requests.get(self.route_url, params=params, timeout=10)
             route_data = route_res.json()
 
             if route_res.status_code != 200:
-                return {"error": route_data.get("message", "Routing failed")}
+                return {"error": route_data.get("message", "Routing failed. Check your API key or locations.")}
 
             path    = route_data["paths"][0]
             dist_km = path["distance"] / 1000
